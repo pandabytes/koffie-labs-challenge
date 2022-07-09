@@ -29,15 +29,18 @@ def insertVin(connection: sqlite3.Connection, vin: Vin):
   cursor.execute("INSERT INTO Vin VALUES (?, ?, ?, ?, ?)", insertParams)
   connection.commit()
 
-def getVin(connection: sqlite3.Connection, vinNumber: str) -> Vin | None:
+def getVin(connection: sqlite3.Connection, vin: str) -> Vin | None:
   cursor = connection.cursor()
-  rows = cursor.execute("SELECT * FROM Vin WHERE vin = :vin", { "vin": vinNumber })
-  # print(rows.arraysize, rows.row)
-  # if rows.arraysize == 0:
-  #   return None
+  rows = cursor.execute("SELECT * FROM Vin WHERE vin = :vin", { "vin": vin })
+
   firstRow = rows.fetchone()
   if firstRow is None:
     return None
 
   return __mapRowToVin(firstRow)
   
+def removeVin(connection: sqlite3.Connection, vin: str):
+  cursor = connection.cursor()
+  rows = cursor.execute("DELETE FROM Vin WHERE vin = :vin", { "vin": vin })
+  connection.commit()
+  return rows.rowcount == 1
