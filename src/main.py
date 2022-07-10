@@ -6,7 +6,6 @@ from logging.config import dictConfig
 from logConfig import LogConfig
 import requests
 import entity
-import vinHelpers
 import queries
 import os
 
@@ -37,7 +36,7 @@ class RemoveResponse(BaseModel):
 
 def __validateVinFormat(vin: str):
   vin = vin.strip()
-  if not vinHelpers.isVinInCorrectFormat(vin):
+  if len(vin) != 17 or not vin.isalnum():
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Vin {vin} must be a 17 alphanumeric characters string.")
   return vin
