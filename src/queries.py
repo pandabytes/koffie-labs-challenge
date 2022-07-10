@@ -1,8 +1,8 @@
 import sqlite3
 from entity import Vin
 
-def connectToVinDatabase(fileName: str):
-  connection = sqlite3.connect(fileName, check_same_thread=False)
+def connectToVinDatabase(filePath: str):
+  connection = sqlite3.connect(filePath, check_same_thread=False)
   cursor = connection.cursor()
   cursor.execute("""
     CREATE TABLE IF NOT EXISTS Vin (

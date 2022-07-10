@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import FileResponse
 import logging
 from logging.config import dictConfig
 from logConfig import LogConfig
@@ -7,6 +8,7 @@ import requests
 import entity
 import vinHelpers
 import queries
+import os
 
 app = FastAPI()
 
@@ -18,7 +20,8 @@ dictConfig(logConfig.dict())
 logger = logging.getLogger(loggerName)
 
 # Set up connection to database
-connection = queries.connectToVinDatabase("vinCache.db")
+cacheFilePath = "vinCache.db"
+connection = queries.connectToVinDatabase(cacheFilePath)
 
 class LookupResponse(BaseModel):
   vin: str
@@ -83,3 +86,14 @@ def remove(vin: str):
   except Exception as ex:
     logger.warning(f"Error trying to remove vin {vin}. Error: %s", ex)
     return RemoveResponse(vin=vin, cacheDeleteSuccess=False)
+
+@app.get("/export", status_code=status.HTTP_200_OK)
+def export():
+  # This shouldn't happen as we always connect to the app at the start
+  # But if it does it means, we have a bug and log a warning
+  if not os.path.exists(cacheFilePath):
+    logger.warn("Cache file not found.")
+    return
+
+  return FileResponse(cacheFilePath, filename="vinCache.db")
+  
