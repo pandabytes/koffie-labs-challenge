@@ -1,11 +1,23 @@
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, status
+import logging
+from logging.config import dictConfig
+from logConfig import LogConfig
 import requests
 import entity
 import vinHelpers
 import queries
 
 app = FastAPI()
+
+# Set up logging 
+loggerName, logConfig = __name__, LogConfig()
+logConfig.addLogger(loggerName, "INFO")
+
+dictConfig(logConfig.dict())
+logger = logging.getLogger(loggerName)
+
+# Set up connection to database
 connection = queries.connectToVinDatabase("vinCache.db")
 
 class LookupResponse(BaseModel):
@@ -29,7 +41,10 @@ def __validateVinFormat(vin: str):
 
 @app.on_event("shutdown")
 def shutdown():
-  connection.close()
+  logger.info("Shutting down service.")
+  if connection is not None:
+    logger.info("Closing database connection.")
+    connection.close()
 
 @app.get("/lookup/{vin}", status_code=status.HTTP_200_OK)
 def lookup(vin: str):
@@ -37,6 +52,7 @@ def lookup(vin: str):
   
   cacheVin = queries.getVin(connection, vin)
   if cacheVin is not None:
+    logger.info("Got vin %s from cache.", vin)
     return LookupResponse(**cacheVin.dict(), cachedResult=True)
 
   response = requests.get(f"https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/{vin}?format=json")
@@ -49,6 +65,7 @@ def lookup(vin: str):
                            model=jsonObj["Model"],
                            modelYear=jsonObj["ModelYear"],
                            bodyClass=jsonObj["BodyClass"])
+    logger.info("Inserting vin %s to cache.", vin)
     queries.insertVin(connection, entityVin)
     
     return LookupResponse(**entityVin.dict(), cachedResult=False)
@@ -64,4 +81,5 @@ def remove(vin: str):
     isVinRemoved = queries.removeVin(connection, vin)
     return RemoveResponse(vin=vin, cacheDeleteSuccess=isVinRemoved)
   except Exception as ex:
+    logger.warning(f"Error trying to remove vin {vin}. Error: %s", ex)
     return RemoveResponse(vin=vin, cacheDeleteSuccess=False)
