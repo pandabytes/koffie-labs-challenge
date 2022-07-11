@@ -4,12 +4,13 @@ import queries
 import os
 import pandas as pd
 import fastparquet
-from pydantic import BaseModel
+import logging
+from pydantic import BaseModel, ValidationError
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import FileResponse
-import logging
 from logging.config import dictConfig
 from logConfig import LogConfig
+from vinHelpers import isVinInCorrectFormat
 
 app = FastAPI()
 
@@ -38,9 +39,9 @@ class RemoveResponse(BaseModel):
 
 def __validateVinFormat(vin: str):
   vin = vin.strip()
-  if len(vin) != 17 or not vin.isalnum():
+  if not isVinInCorrectFormat(vin):
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Vin {vin} must be a 17 alphanumeric characters string.")
+                        detail=f"VIN {vin} must be a 17 alphanumeric characters string.")
   return vin
 
 @app.on_event("shutdown")
@@ -56,27 +57,29 @@ def lookup(vin: str):
   
   cacheVin = queries.getVin(connection, vin)
   if cacheVin is not None:
-    logger.info("Got vin %s from cache.", vin)
+    logger.info("Got VIN %s from cache.", vin)
     return LookupResponse(**cacheVin.dict(), cachedResult=True)
-
+  
   response = requests.get(f"https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/{vin}?format=json")
   try:
     response.raise_for_status()
     jsonObj = response.json()["Results"][0]
-
     entityVin = entity.Vin(vin=vin, 
                            make=jsonObj["Make"],
                            model=jsonObj["Model"],
                            modelYear=jsonObj["ModelYear"],
                            bodyClass=jsonObj["BodyClass"])
-    logger.info("Inserting vin %s to cache.", vin)
+    logger.info("Inserting VIN %s to cache.", vin)
     queries.insertVin(connection, entityVin)
     
     return LookupResponse(**entityVin.dict(), cachedResult=False)
   except requests.HTTPError as ex:
     raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Call to Vehicle API returned an error. Error: {ex}")
+  except ValidationError as ex:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cannot find VIN {vin}.")
   except Exception as ex:
-    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error: {ex}")
+    logger.exception(f"Encountered unexpected error in trying to lookup VIN {vin}.")
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Something happened on our end.")
 
 @app.delete("/remove/{vin}", status_code=status.HTTP_200_OK)
 def remove(vin: str):
@@ -85,7 +88,7 @@ def remove(vin: str):
     isVinRemoved = queries.removeVin(connection, vin)
     return RemoveResponse(vin=vin, cacheDeleteSuccess=isVinRemoved)
   except Exception as ex:
-    logger.warning(f"Error trying to remove vin {vin}. Error: %s", ex)
+    logger.warning(f"Error trying to remove VIN {vin}. Error: %s", ex)
     return RemoveResponse(vin=vin, cacheDeleteSuccess=False)
 
 @app.get("/export", status_code=status.HTTP_200_OK)
@@ -102,9 +105,8 @@ def export():
   else:
     vins = queries.getAllVinsRaw(connection)
     if len(vins) > 0:
-      logger.info(f"Writing {len(vins)} vin(s) to file {parquetFilePath}.")
+      logger.info(f"Writing {len(vins)} vin(s) to file \"{parquetFilePath}\".")
       df = pd.DataFrame(vins, columns=["vin", "make", "model", "modelYear", "bodyClass"])
       fastparquet.write(parquetFilePath, df)
 
   return FileResponse(parquetFilePath, filename=os.path.basename(parquetFilePath))
-  

@@ -3,14 +3,14 @@ from pydantic import BaseModel
 
 class LogConfig(BaseModel):
     """Logging configuration"""
-    logFormat: str = "%(levelprefix)s %(asctime)s | %(message)s"
+    logFormat: str = "%(levelprefix)s %(asctime)s - %(message)s"
     version = 1
     disable_existing_loggers = False
     formatters = {
       "default": {
           "()": "uvicorn.logging.DefaultFormatter",
           "fmt": logFormat,
-          "datefmt": "%Y-%m-%d %H:%M:%S",
+          "datefmt": "%Y/%m/%d %H:%M:%S",
       },
     }
     handlers = {

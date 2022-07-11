@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator, fields
+from vinHelpers import isVinInCorrectFormat
 
 class Vin(BaseModel):
   vin: str
@@ -6,3 +7,16 @@ class Vin(BaseModel):
   model: str
   modelYear: str
   bodyClass: str
+
+  @validator("*")
+  def checkFieldIsEmpty(cls, value: str, field: fields.ModelField):
+    value = value.strip()
+    if len(value) == 0:
+      raise ValueError(f"Field \"{field}\" must not be an empty string.")
+    return value
+
+  @validator("vin")
+  def checkVinInCorrectFormat(cls, value: str):
+    if not isVinInCorrectFormat(value):
+      raise ValueError(f"VIN \"{value}\" must be a 17 alphanumeric characters string.")
+    return value
