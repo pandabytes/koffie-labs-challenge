@@ -1,5 +1,5 @@
 import sqlite3
-from entity import Vin
+from .entities import Vin
 
 def connectToVinDatabase(filePath: str):
   connection = sqlite3.connect(filePath, check_same_thread=False)

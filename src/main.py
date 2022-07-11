@@ -1,16 +1,15 @@
 import requests
-import entity
-import queries
 import os
 import pandas as pd
 import fastparquet
 import logging
+from db import entities, queries
 from pydantic import BaseModel, ValidationError
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import FileResponse
 from logging.config import dictConfig
 from logConfig import LogConfig
-from vinHelpers import isVinInCorrectFormat
+from utils.vin import isVinInCorrectFormat
 
 app = FastAPI()
 
@@ -64,11 +63,11 @@ def lookup(vin: str):
   try:
     response.raise_for_status()
     jsonObj = response.json()["Results"][0]
-    entityVin = entity.Vin(vin=vin, 
-                           make=jsonObj["Make"],
-                           model=jsonObj["Model"],
-                           modelYear=jsonObj["ModelYear"],
-                           bodyClass=jsonObj["BodyClass"])
+    entityVin = entities.Vin(vin=vin, 
+                             make=jsonObj["Make"],
+                             model=jsonObj["Model"],
+                             modelYear=jsonObj["ModelYear"],
+                             bodyClass=jsonObj["BodyClass"])
     logger.info("Inserting VIN %s to cache.", vin)
     queries.insertVin(connection, entityVin)
     

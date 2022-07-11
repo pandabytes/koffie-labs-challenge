@@ -1,5 +1,5 @@
 from pydantic import BaseModel, validator, fields
-from vinHelpers import isVinInCorrectFormat
+from utils.vin import isVinInCorrectFormat
 
 class Vin(BaseModel):
   vin: str
