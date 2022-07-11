@@ -38,7 +38,7 @@ class RemoveResponse(BaseModel):
   cacheDeleteSuccess: bool
 
 def __validateVinFormat(vin: str):
-  vin = vin.strip()
+  vin = vin.strip().upper()
   if not isVinInCorrectFormat(vin):
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"VIN {vin} must be a 17 alphanumeric characters string.")

@@ -8,6 +8,10 @@ class Vin(BaseModel):
   modelYear: str
   bodyClass: str
 
+  @validator("vin", pre=True)
+  def makeVinUpperCase(cls, value: str):
+    return value.upper()
+
   @validator("*")
   def checkFieldIsEmpty(cls, value: str, field: fields.ModelField):
     value = value.strip()
