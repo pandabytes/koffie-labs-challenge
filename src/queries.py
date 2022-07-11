@@ -39,6 +39,16 @@ def getVin(connection: sqlite3.Connection, vin: str) -> Vin | None:
 
   return __mapRowToVin(firstRow)
   
+def getAllVinsRaw(connection: sqlite3.Connection) -> list[tuple]:
+  """ Only use this if the size of the data is small.
+      This returns the raw data from sqlite, in the form
+      of tuple (a, b, c, d, etc...) where each index
+      represents the corresponding column in the Vin table.
+  """
+  cursor = connection.cursor()
+  rows = cursor.execute("SELECT * FROM Vin")
+  return [row for row in rows]
+
 def removeVin(connection: sqlite3.Connection, vin: str):
   cursor = connection.cursor()
   rows = cursor.execute("DELETE FROM Vin WHERE vin = :vin", { "vin": vin })
