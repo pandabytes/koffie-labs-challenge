@@ -96,7 +96,7 @@ def export():
     pass
 
   if not os.path.exists(cacheFilePath):
-    # This shouldn't happen as we always connect to the app at the start
+    # This shouldn't happen as we always connect to the database at the start
     # But if it does, it means we have a bug so we log a warning
     logger.warn("Cache file not found for export.")
   else:
