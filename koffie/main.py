@@ -24,7 +24,7 @@ logger = logging.getLogger(loggerName)
 
 # Set up connection to database
 cacheFilePath = "vinCache.db"
-connection = queries.connectToVinDatabase(cacheFilePath)
+dbConnection = queries.connectToVinDatabase(cacheFilePath)
 
 def __validateVinFormat(vin: str):
   vin = vin.strip().upper()
@@ -36,15 +36,19 @@ def __validateVinFormat(vin: str):
 @app.on_event("shutdown")
 def shutdown():
   logger.info("Shutting down service.")
-  if connection is not None:
+  if dbConnection is not None:
     logger.info("Closing database connection.")
-    connection.close()
+    dbConnection.close()
 
 @app.get("/lookup/{vin}", status_code=status.HTTP_200_OK)
 def lookup(vin: str):
+  """ Lookup the given vin number in the cache. If the vin is not in the
+      cache, then try to get it from Vehicle API (https://vpic.nhtsa.dot.gov/api/).
+  """
   vin = __validateVinFormat(vin)
   
-  cacheVin = queries.getVin(connection, vin)
+  # Try to get vin from cache first
+  cacheVin = queries.getVin(dbConnection, vin)
   if cacheVin is not None:
     logger.info("Got VIN %s from cache.", vin)
     return LookupResponse(**cacheVin.dict(), cachedResult=True)
@@ -59,7 +63,7 @@ def lookup(vin: str):
                              modelYear=jsonObj["ModelYear"],
                              bodyClass=jsonObj["BodyClass"])
     logger.info("Inserting VIN %s to cache.", vin)
-    queries.insertVin(connection, entityVin)
+    queries.insertVin(dbConnection, entityVin)
     
     return LookupResponse(**entityVin.dict(), cachedResult=False)
   except requests.HTTPError as ex:
@@ -72,9 +76,13 @@ def lookup(vin: str):
 
 @app.delete("/remove/{vin}", status_code=status.HTTP_200_OK)
 def remove(vin: str):
+  """ Remove the vin from cache. This API will always return a status of 200, whether
+      the vin was sucessfully removed or not. Client can use the field `cacheDeleteSuccess`
+      to check the actual success status of the API.
+  """
   vin = __validateVinFormat(vin)
   try:
-    isVinRemoved = queries.removeVin(connection, vin)
+    isVinRemoved = queries.removeVin(dbConnection, vin)
     return RemoveResponse(vin=vin, cacheDeleteSuccess=isVinRemoved)
   except Exception as ex:
     logger.warning(f"Error trying to remove VIN {vin}. Error: %s", ex)
@@ -82,6 +90,9 @@ def remove(vin: str):
 
 @app.get("/export", status_code=status.HTTP_200_OK)
 def export():
+  """ Export the cache to a parq file (Parquet format). If the cache is empty,
+      then export an empty parq file.
+  """
   # Always create an empty parquet file
   parquetFilePath = "vins.parq"
   with open(parquetFilePath, "w") as _: 
@@ -92,10 +103,10 @@ def export():
     # But if it does, it means we have a bug so we log a warning
     logger.warn("Cache file not found for export.")
   else:
-    vins = queries.getAllVinsRaw(connection)
+    vins = queries.getAllVinsRaw(dbConnection)
     if len(vins) > 0:
       logger.info(f"Writing {len(vins)} vin(s) to file \"{parquetFilePath}\".")
-      df = pd.DataFrame(vins, columns=["vin", "make", "model", "modelYear", "bodyClass"])
-      fastparquet.write(parquetFilePath, df)
+      dataFrame = pd.DataFrame(vins, columns=["vin", "make", "model", "modelYear", "bodyClass"])
+      fastparquet.write(parquetFilePath, dataFrame)
 
   return FileResponse(parquetFilePath, filename=os.path.basename(parquetFilePath))

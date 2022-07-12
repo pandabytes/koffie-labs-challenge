@@ -2,6 +2,7 @@ from pydantic import BaseModel, validator, fields
 from ..utils.vin import isVinInCorrectFormat
 
 class Vin(BaseModel):
+  """ The entity that models the data in the Vin cache. """
   vin: str
   make: str
   model: str

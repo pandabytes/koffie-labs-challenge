@@ -2,6 +2,9 @@ import sqlite3
 from .entities import Vin
 
 def connectToVinDatabase(filePath: str):
+  """ Connect to the Vin database cache. This returns a connection object
+      in which must be manually closed by the client.
+  """
   connection = sqlite3.connect(filePath, check_same_thread=False)
   cursor = connection.cursor()
   try:
@@ -24,12 +27,14 @@ def connectToVinDatabase(filePath: str):
     cursor.close()
 
 def __mapRowToVin(row: tuple) -> Vin:
+  """ Attempt to map the raw data from sqlite (tuple) to Vin object. """
   try:
     return Vin(vin=row[0], make=row[1], model=row[2], modelYear=row[3], bodyClass=row[4])
   except Exception as ex:
     raise ValueError(f"Unable to map from object {row} to Vin entity object. Error: {ex}")
 
 def insertVin(connection: sqlite3.Connection, vin: Vin):
+  """ Insert `vin` to the the Vin table. """
   cursor = connection.cursor()
   try:
     insertParams = (vin.vin, vin.make, vin.model, vin.modelYear, vin.bodyClass)
@@ -39,6 +44,7 @@ def insertVin(connection: sqlite3.Connection, vin: Vin):
     cursor.close()
 
 def getVin(connection: sqlite3.Connection, vin: str) -> Vin | None:
+  """ Get the `vin` from the Vin table. If not found, None is returned. """
   cursor = connection.cursor()
   try:
     rows = cursor.execute("SELECT * FROM Vin WHERE vin = :vin", { "vin": vin })
@@ -64,6 +70,7 @@ def getAllVinsRaw(connection: sqlite3.Connection) -> list[tuple]:
     cursor.close()
 
 def removeVin(connection: sqlite3.Connection, vin: str):
+  """ Remove the `vin` from the Vin table. It returns `True` if the vin was removed. `False` otherwise. """
   cursor = connection.cursor()
   try:
     rows = cursor.execute("DELETE FROM Vin WHERE vin = :vin", { "vin": vin })
