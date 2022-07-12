@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 from .entities import Vin
 
 def connectToVinDatabase(filePath: str):
@@ -6,8 +7,7 @@ def connectToVinDatabase(filePath: str):
       in which must be manually closed by the client.
   """
   connection = sqlite3.connect(filePath, check_same_thread=False)
-  cursor = connection.cursor()
-  try:
+  with closing(connection.cursor()) as cursor:
     # This ensures we always have fresh table 
     cursor.execute("DROP TABLE IF EXISTS Vin")
 
@@ -23,8 +23,6 @@ def connectToVinDatabase(filePath: str):
 
     connection.commit()
     return connection
-  finally:
-    cursor.close()
 
 def __mapRowToVin(row: tuple) -> Vin:
   """ Attempt to map the raw data from sqlite (tuple) to Vin object. """
@@ -35,26 +33,20 @@ def __mapRowToVin(row: tuple) -> Vin:
 
 def insertVin(connection: sqlite3.Connection, vin: Vin):
   """ Insert `vin` to the the Vin table. """
-  cursor = connection.cursor()
-  try:
+  with closing(connection.cursor()) as cursor:
     insertParams = (vin.vin, vin.make, vin.model, vin.modelYear, vin.bodyClass)
     cursor.execute("INSERT INTO Vin VALUES (?, ?, ?, ?, ?)", insertParams)
     connection.commit()
-  finally:
-    cursor.close()
-
+  
 def getVin(connection: sqlite3.Connection, vin: str) -> Vin | None:
   """ Get the `vin` from the Vin table. If not found, None is returned. """
-  cursor = connection.cursor()
-  try:
+  with closing(connection.cursor()) as cursor:
     rows = cursor.execute("SELECT * FROM Vin WHERE vin = :vin", { "vin": vin })
     firstRow = rows.fetchone()
     if firstRow is None:
       return None
 
     return __mapRowToVin(firstRow)
-  finally:
-    cursor.close()
   
 def getAllVinsRaw(connection: sqlite3.Connection) -> list[tuple]:
   """ Only use this if the size of the data is small.
@@ -62,19 +54,13 @@ def getAllVinsRaw(connection: sqlite3.Connection) -> list[tuple]:
       of tuple (a, b, c, d, etc...) where each index
       represents the corresponding column in the Vin table.
   """
-  cursor = connection.cursor()
-  try:
+  with closing(connection.cursor()) as cursor:
     rows = cursor.execute("SELECT * FROM Vin")
     return [row for row in rows]
-  finally:
-    cursor.close()
 
 def removeVin(connection: sqlite3.Connection, vin: str):
   """ Remove the `vin` from the Vin table. It returns `True` if the vin was removed. `False` otherwise. """
-  cursor = connection.cursor()
-  try:
+  with closing(connection.cursor()) as cursor:
     rows = cursor.execute("DELETE FROM Vin WHERE vin = :vin", { "vin": vin })
     connection.commit()
     return rows.rowcount == 1
-  finally:
-    cursor.close()

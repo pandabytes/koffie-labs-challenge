@@ -64,14 +64,14 @@ def lookup(vin: str):
                              bodyClass=jsonObj["BodyClass"])
     logger.info("Inserting VIN %s to cache.", vin)
     queries.insertVin(dbConnection, entityVin)
-    
+
     return LookupResponse(**entityVin.dict(), cachedResult=False)
   except requests.HTTPError as ex:
     raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Call to Vehicle API returned an error. Error: {ex}")
   except ValidationError as ex:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cannot find VIN {vin}.")
   except Exception as ex:
-    logger.exception(f"Encountered unexpected error in trying to lookup VIN {vin}.")
+    logger.exception("Encountered unexpected error in trying to lookup VIN %s.", vin)
     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Something happened on our end.")
 
 @app.delete("/remove/{vin}", status_code=status.HTTP_200_OK)
@@ -85,7 +85,7 @@ def remove(vin: str):
     isVinRemoved = queries.removeVin(dbConnection, vin)
     return RemoveResponse(vin=vin, cacheDeleteSuccess=isVinRemoved)
   except Exception as ex:
-    logger.warning(f"Error trying to remove VIN {vin}. Error: %s", ex)
+    logger.exception("Error trying to remove VIN %s. Error: %s", vin, ex)
     return RemoveResponse(vin=vin, cacheDeleteSuccess=False)
 
 @app.get("/export", status_code=status.HTTP_200_OK)

@@ -98,7 +98,7 @@ class TestExportApi:
     expectedVins = insertVins(vins)
 
     # Export the cache
-    response = client.get(f"/export")
+    response = client.get("/export")
     assert response.status_code == status.HTTP_200_OK
 
     # Write the exported content to a temporary file
