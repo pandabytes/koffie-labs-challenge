@@ -3,13 +3,15 @@ import os
 import pandas as pd
 import fastparquet
 import logging
-from db import entities, queries
-from pydantic import BaseModel, ValidationError
+from .db import entities, queries
+from .logConfig import LogConfig
+from .schemas.lookup import LookupResponse
+from .schemas.remove import RemoveResponse
+from .utils.vin import isVinInCorrectFormat
+from pydantic import ValidationError
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import FileResponse
 from logging.config import dictConfig
-from logConfig import LogConfig
-from utils.vin import isVinInCorrectFormat
 
 app = FastAPI()
 
@@ -24,18 +26,6 @@ logger = logging.getLogger(loggerName)
 cacheFilePath = "vinCache.db"
 connection = queries.connectToVinDatabase(cacheFilePath)
 
-class LookupResponse(BaseModel):
-  vin: str
-  make: str
-  model: str
-  modelYear: str
-  bodyClass: str
-  cachedResult: bool
-
-class RemoveResponse(BaseModel):
-  vin: str
-  cacheDeleteSuccess: bool
-
 def __validateVinFormat(vin: str):
   vin = vin.strip().upper()
   if not isVinInCorrectFormat(vin):
@@ -49,6 +39,10 @@ def shutdown():
   if connection is not None:
     logger.info("Closing database connection.")
     connection.close()
+
+  if os.path.exists(cacheFilePath):
+    logger.info(f"Removing cache file {cacheFilePath}.")
+    os.remove(cacheFilePath)
 
 @app.get("/lookup/{vin}", status_code=status.HTTP_200_OK)
 def lookup(vin: str):

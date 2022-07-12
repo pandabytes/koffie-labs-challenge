@@ -4,18 +4,24 @@ from .entities import Vin
 def connectToVinDatabase(filePath: str):
   connection = sqlite3.connect(filePath, check_same_thread=False)
   cursor = connection.cursor()
-  cursor.execute("""
-    CREATE TABLE IF NOT EXISTS Vin (
-      vin TEXT PRIMARY KEY,
-      make TEXT NOT NULL,
-      model TEXT NOT NULL,
-      modelYear TEXT NOT NULL,
-      bodyClass TEXT NOT NULL
-    )
-  """)
+  try:
+    # This ensures we always have fresh table 
+    cursor.execute("DROP TABLE IF EXISTS Vin")
 
-  connection.commit()
-  return connection
+    cursor.execute("""
+      CREATE TABLE IF NOT EXISTS Vin (
+        vin TEXT PRIMARY KEY,
+        make TEXT NOT NULL,
+        model TEXT NOT NULL,
+        modelYear TEXT NOT NULL,
+        bodyClass TEXT NOT NULL
+      )
+    """)
+
+    connection.commit()
+    return connection
+  finally:
+    cursor.close()
 
 def __mapRowToVin(row: tuple) -> Vin:
   try:
@@ -25,19 +31,24 @@ def __mapRowToVin(row: tuple) -> Vin:
 
 def insertVin(connection: sqlite3.Connection, vin: Vin):
   cursor = connection.cursor()
-  insertParams = (vin.vin, vin.make, vin.model, vin.modelYear, vin.bodyClass)
-  cursor.execute("INSERT INTO Vin VALUES (?, ?, ?, ?, ?)", insertParams)
-  connection.commit()
+  try:
+    insertParams = (vin.vin, vin.make, vin.model, vin.modelYear, vin.bodyClass)
+    cursor.execute("INSERT INTO Vin VALUES (?, ?, ?, ?, ?)", insertParams)
+    connection.commit()
+  finally:
+    cursor.close()
 
 def getVin(connection: sqlite3.Connection, vin: str) -> Vin | None:
   cursor = connection.cursor()
-  rows = cursor.execute("SELECT * FROM Vin WHERE vin = :vin", { "vin": vin })
+  try:
+    rows = cursor.execute("SELECT * FROM Vin WHERE vin = :vin", { "vin": vin })
+    firstRow = rows.fetchone()
+    if firstRow is None:
+      return None
 
-  firstRow = rows.fetchone()
-  if firstRow is None:
-    return None
-
-  return __mapRowToVin(firstRow)
+    return __mapRowToVin(firstRow)
+  finally:
+    cursor.close()
   
 def getAllVinsRaw(connection: sqlite3.Connection) -> list[tuple]:
   """ Only use this if the size of the data is small.
@@ -46,11 +57,17 @@ def getAllVinsRaw(connection: sqlite3.Connection) -> list[tuple]:
       represents the corresponding column in the Vin table.
   """
   cursor = connection.cursor()
-  rows = cursor.execute("SELECT * FROM Vin")
-  return [row for row in rows]
+  try:
+    rows = cursor.execute("SELECT * FROM Vin")
+    return [row for row in rows]
+  finally:
+    cursor.close()
 
 def removeVin(connection: sqlite3.Connection, vin: str):
   cursor = connection.cursor()
-  rows = cursor.execute("DELETE FROM Vin WHERE vin = :vin", { "vin": vin })
-  connection.commit()
-  return rows.rowcount == 1
+  try:
+    rows = cursor.execute("DELETE FROM Vin WHERE vin = :vin", { "vin": vin })
+    connection.commit()
+    return rows.rowcount == 1
+  finally:
+    cursor.close()
