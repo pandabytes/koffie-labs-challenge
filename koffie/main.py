@@ -43,7 +43,8 @@ def shutdown():
 @app.get("/lookup/{vin}", status_code=status.HTTP_200_OK)
 def lookup(vin: str):
   """ Lookup the given vin number in the cache. If the vin is not in the
-      cache, then try to get it from Vehicle API (https://vpic.nhtsa.dot.gov/api/).
+      cache, then try to get it from [Vehicle API](https://vpic.nhtsa.dot.gov/api/)
+      and insert the vin in the cache if found.
   """
   vin = __validateVinFormat(vin)
   
@@ -76,17 +77,17 @@ def lookup(vin: str):
 
 @app.delete("/remove/{vin}", status_code=status.HTTP_200_OK)
 def remove(vin: str):
-  """ Remove the vin from cache. This API will always return a status of 200, whether
-      the vin was sucessfully removed or not. Client can use the field `cacheDeleteSuccess`
-      to check the actual success status of the API.
+  """ Remove the vin from cache. This API will return a status of 200, whether
+      the vin was successfully removed or not from the cache. Client can use the 
+      field `cacheDeleteSuccess` to check the actual success status of the API.
   """
   vin = __validateVinFormat(vin)
   try:
     isVinRemoved = queries.removeVin(dbConnection, vin)
     return RemoveResponse(vin=vin, cacheDeleteSuccess=isVinRemoved)
   except Exception as ex:
-    logger.exception("Error trying to remove VIN %s. Error: %s", vin, ex)
-    return RemoveResponse(vin=vin, cacheDeleteSuccess=False)
+    logger.exception("Encountered unexpected error in trying to remove VIN %s. Error: %s", vin, ex)
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Something happened on our end.")
 
 @app.get("/export", status_code=status.HTTP_200_OK)
 def export():
@@ -103,10 +104,14 @@ def export():
     # But if it does, it means we have a bug so we log a warning
     logger.warn("Cache file not found for export.")
   else:
-    vins = queries.getAllVinsRaw(dbConnection)
-    if len(vins) > 0:
-      logger.info(f"Writing {len(vins)} vin(s) to file \"{parquetFilePath}\".")
-      dataFrame = pd.DataFrame(vins, columns=["vin", "make", "model", "modelYear", "bodyClass"])
-      fastparquet.write(parquetFilePath, dataFrame)
+    try:
+      vins = queries.getAllVinsRaw(dbConnection)
+      if len(vins) > 0:
+        logger.info(f"Writing {len(vins)} vin(s) to file \"{parquetFilePath}\".")
+        dataFrame = pd.DataFrame(vins, columns=["vin", "make", "model", "modelYear", "bodyClass"])
+        fastparquet.write(parquetFilePath, dataFrame)
+    except Exception as ex:
+      logger.exception("Encountered unexpected error in trying to export parq file. Error: %s", ex)
+      raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Something happened on our end.")
 
   return FileResponse(parquetFilePath, filename=os.path.basename(parquetFilePath))
