@@ -3,10 +3,9 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from fastapi import status
-import src.main as main
-import src.db.queries as queries
-from src.schemas.remove import RemoveResponse
-from src.schemas.lookup import LookupResponse
+import koffie.main as main
+from koffie.schemas.remove import RemoveResponse
+from koffie.schemas.lookup import LookupResponse
 
 client = TestClient(main.app)
 
