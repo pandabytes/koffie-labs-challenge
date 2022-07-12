@@ -1,5 +1,5 @@
-import requests
 import os
+import requests
 import pandas as pd
 import fastparquet
 import logging
@@ -39,10 +39,6 @@ def shutdown():
   if connection is not None:
     logger.info("Closing database connection.")
     connection.close()
-
-  if os.path.exists(cacheFilePath):
-    logger.info(f"Removing cache file {cacheFilePath}.")
-    os.remove(cacheFilePath)
 
 @app.get("/lookup/{vin}", status_code=status.HTTP_200_OK)
 def lookup(vin: str):
